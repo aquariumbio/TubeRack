@@ -1,2 +1,2 @@
-For handling Tube Rack.   Where individual items may (for a short time) exist in a collection.  Provides tools to use as a collection.
+For handling items in a Tube Rack (e.g. eppendorf tubes, strip wells, and test tubes).   Where individual items may (for a short time) exist in a collection.  Provides tools to use as a collection.
 I am pretty sure it makes provenance a nightmare...
