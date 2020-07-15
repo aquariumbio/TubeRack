@@ -1,62 +1,103 @@
-# typed: false
 # frozen_string_literal: true
 
-module TubeRackHelper
-  def fetch_tube_rack(tube_rack)
-    show do
-      title 'Get Tube Rack'
-      note 'To help stay organized please get a'\
-           " <b>#{tube_rack.rack_type}</b>"
-      note "Make sure that the rack has #{tube_rack.rows} rows and #{tube_rack.columns} columns"
-      separator
-      note 'Using a small piece of tape label the <b>'\
-           "#{tube_rack.rack_type}</b> with <b>#{tube_rack.id}</b>"
-    end
-  end
 
-  def add_items(item_list, tube_rack)
-    item_list.each { |item| tube_rack.add_item(item) }
+# Factory class for instantiating `PlateLayoutGenerator`
+#
+# @author Devin Strickland <strcklnd@uw.edu>
+class TubeRackFactory
 
-    if tube_rack.is_a? TubeRack
-      tube_rack_instructions(item_list, tube_rack)
-    elsif tube_rack.is_a? StripWellRack
-      show do
-        note 'hey it worked thats wild'
-      end
+  def self.build(item_list:, object_type:, instructions: true)
+    rack = nil
+    if item_list.all? { |coll| coll.collection? }
+      rack = StripWellRack.new(object_type: object_type)
+    elsif item_list.all? { |item| item.is_a? Item }
+      rack = TubeRack.new(object_type: object_type)
     else
-      raise 'Unknown Tube Rack Class'
+      raise IncompatibleObjectType, 'Incompatible Object_Type'
     end
+    item_list.each { |item| rack.add_item(item) }
+    rack
   end
 
-  def tube_rack_instructions(item_list, tube_rack)
-    tube_rack.collection.get_non_empty.each_slice(3).to_a.each do |rc_chunk|
-      show do
-        title 'Place Samples into Tube Rack'
-        note "Place samples tubes in the <b>#{tube_rack.rack_type}</b>"\
-             ' per the table below'
-        table highlight_collection_rc(tube_rack.collection, rc_chunk) { |r, c|
-          tube_rack.part(r, c).id
-        }
-      end
-    end
-  end
 end
 
-
-
 class TubeRack
-
   TRUE_ITEM = 'true_item'.to_sym
 
-  attr_reader :rack_type, :collection, :rows, :columns, :id
+  attr_reader :object_type, :collection, :rows, :columns, :id
 
-  def initialize(rack_type:, collection: nil)
-    @collection = collection.nil? ? Collection.new_collection(rack_type) : collection
-    @rack_type = collection.nil? ? rack_type.to_s : collection.object_type.name
+  def initialize(object_type:, collection: nil)
+    @collection = collection.nil? ? Collection.new_collection(object_type) : collection
+    @object_type = collection.nil? ? object_type.to_s : collection.object_type.name
     @collection.mark_as_deleted
     @rows = @collection.dimensions[0]
     @columns = @collection.dimensions[1]
     @id = @collection.id
+  end
+
+  def get_non_empty
+    collection.get_non_empty
+  end
+
+  def get_empty
+    collection.get_empty
+  end
+
+  def dimensions
+    [rows, columns]
+  end
+
+  def find(val)
+    if val.is_a? Sample
+      return self.find_sample(val)
+    elsif val.is_a? Item
+      return self.find_item(val)
+    else
+      raise 'not valid object to find'
+    end
+  end
+
+  def find_sample(sample)
+    raise 'wrong object type' unless sample.is_a Sample
+    locations = []
+    self.get_non_empty.each do |r, c|
+      locations.push([r, c]) if self.part(r, c).sample == sample
+    end
+    locations
+  end
+
+  def find_item(item)
+    raise 'wrong object type' unless item.is_a item
+    locations = []
+    self.get_non_empty.each do |r, c|
+      locations.push([r, c]) if self.part(r, c) == item
+    end
+    locations
+  end
+
+  def empty?
+    collection.empty?
+  end
+
+  def full?
+    collection.full?
+  end
+
+  def next(r, c, options = {})
+    collection.next(r, c, options = options)
+  end
+
+  def num_samples
+    collection.num_samples
+  end
+
+  def parts
+    self.get_non_empty.map { |r, c| self.part(r, c) }
+  end
+
+  def set(r, c, x)
+    raise 'part must be an item' unless x.is_a? Item
+    self.add_item(x, location: [r, c])
   end
 
   # TODO: I do not like this at all.  But the association wouldn't
@@ -93,8 +134,17 @@ class StripWellRack < TubeRack
 
   # TODO: This also feels gross to me but associations won't hold
   # the actual item
-  def get_strip_well(row)
-    Collection.find(@collection.part(row, 0).get(TRUE_COLLECTION))
+  def get_strip_well(row, col)
+    Collection.find(@collection.part(row, col || 0).get(TRUE_COLLECTION))
+  end
+
+  # returns all rows that a stripwell occupies
+  def find_stripwell(stripwell)
+    wells = []
+    get_non_empty.each do |r, c|
+      wells.push([r, c]) if get_strip_well(r, c) == stripwell
+    end
+    wells
   end
 
   private
@@ -107,7 +157,7 @@ class StripWellRack < TubeRack
                     Sample.find_by_name('Generic Tube Rack'))
     part = @collection.part(row, column)
     part.associate(TRUE_ITEM, item.id)
-    part.associate(TRUE_COLLECTION, item.containing_collection) if item.is_part
+    part.associate(TRUE_COLLECTION, item.containing_collection.id) if item.is_part
     [row, column]
   end
 
