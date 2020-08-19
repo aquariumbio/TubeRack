@@ -5,11 +5,19 @@ class TubeRack
 
   attr_reader :matrix, :name, :columns, :rows
 
-  def initialize(rows, columns, name: nil)
+  def initialize(rows, columns, name: 'Tube Rack')
     @columns = columns
     @rows = rows
     @matrix = build_matrix
-    @name = name || 'Tube Rack'
+    @name = name
+  end
+
+  def id
+    name
+  end
+
+  def dimensions
+    [rows, columns]
   end
 
   def get_empty
@@ -49,6 +57,30 @@ class TubeRack
         return [row_idx, col_idx] if part(row_idx, col_idx).nil?
       end
     end
+  end
+  
+  def next_empty_row
+    matrix.each_with_index do |row, row_idx|
+      empty_row = true
+      row.each_with_index do |column, col_idx|
+        empty_row = false if part(row_idx, col_idx).present?
+      end
+      return row if empty_row
+    end
+  end
+
+  def next_empty_column
+    column = []
+    matrix.first.length.times do |col_idx|
+      empty_column = true
+      matrix.each_with_index do |_row, row_idx|
+        empty_column = false if part(row_idx, col_idx).present?
+        column.push([row_idx, col_idx])
+      end
+      return column if empty_column
+      column = []
+    end
+    raise 'no empty columns were found'
   end
 
   def set(item, row, colum)
