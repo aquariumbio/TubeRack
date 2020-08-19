@@ -24,7 +24,7 @@ module TubeRackHelper
         title 'Place Samples into Tube Rack'
         note "Place samples tubes in the <b>#{tube_rack.name}</b>"\
             ' per the table below'
-        table highlight_tube_rack_rc(tube_rack, chunk) { |r, c|
+        table highlight_tube_rack_rc(tube_rack, chunk, check: false) { |r, c|
           tube_rack.part(r, c).id
         }
       end
