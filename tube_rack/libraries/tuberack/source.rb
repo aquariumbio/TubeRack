@@ -61,12 +61,15 @@ class TubeRack
   
   def next_empty_row
     matrix.each_with_index do |row, row_idx|
+      to_row = []
       empty_row = true
       row.each_with_index do |column, col_idx|
-        empty_row = false if part(row_idx, col_idx).present?
+        empty_row = false if part(row_idx, col_idx).present? 
+        to_row.push([row_idx, col_idx])
       end
-      return row if empty_row
+      return to_row if empty_row
     end
+    raise 'no empty rows were found'
   end
 
   def next_empty_column
@@ -83,15 +86,20 @@ class TubeRack
     raise 'no empty columns were found'
   end
 
-  def set(item, row, colum)
-    matrix[row][colum] = item
+  def set(item, row, column)
+    matrix[row][column] = item
   end
 
   def find(item)
     get_non_empty.each do |r, c|
       return [r, c] if part(r, c).id == item.id
     end
-    nil
+  end
+  
+  def find_collection_parts(item)
+    get_non_empty.each do |r, c|
+      return [r,c] if part(r,c).containing_collection.id == item.id 
+    end
   end
 
   def find_multiple(items)
